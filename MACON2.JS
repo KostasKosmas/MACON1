@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  
+  // Simple data store object
   const dataStore = {};
   const codeLimit = 4; // Limit of codes for each ΦΑΤΝΩΜΑ
 
