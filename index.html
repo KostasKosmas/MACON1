@@ -1,200 +1,182 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="MACON.CSS">
-  <title>MACON</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="MACON.CSS">
+    <title>MACON</title>
 </head>
+
 <body>
-  <div id="main-container">
-    <div id="page1">
-      <button id="registrationButton" onclick="goToRegistration()">ΚΑΤΑΧΩΡΗΣΗ</button>
-      <button id="searchButton" onclick="goToSearch()">ΑΝΑΖΗΤΗΣΗ</button>
+    <div id="main-container">
+        <div id="page1">
+            <button id="registrationButton">ΚΑΤΑΧΩΡΗΣΗ</button>
+            <button id="searchButton">ΑΝΑΖΗΤΗΣΗ</button>
+        </div>
+
+        <div id="page2" style="display: none;">
+            <input type="text" id="nameInput" placeholder="ΦΑΤΝΩΜΑ">
+            <input type="text" id="codeInput" placeholder="CODE">
+            <button id="completeButton">COMPLETE</button>
+            <button id="returnButton1">RETURN</button>
+        </div>
+
+        <div id="page3" style="display: none;">
+            <input type="text" id="searchCodeInput" placeholder="Enter CODE">
+            <button id="findButton">FIND</button>
+            <button id="clearCodeButton">CLEAR CODE</button>
+            <div id="searchResult"></div>
+            <button id="returnButton2">RETURN</button>
+        </div>
     </div>
 
-    <div id="page2" style="display: none;">
-      <input type="text" id="nameInput" placeholder="ΦΑΤΝΩΜΑ">
-      <input type="text" id="codeInput" placeholder="CODE">
-      <button id="completeButton" onclick="completeRegistration()">COMPLETE</button>
-      <button id="returnButton1" onclick="goToPage1()">RETURN</button>
-    </div>
+    <script type="module" defer>
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    <div id="page3" style="display: none;">
-      <input type="text" id="searchCodeInput" placeholder="Enter CODE">
-      <button id="searchButton" onclick="search()">SEARCH</button>
-      <button id="clearCodeButton" onclick="clearCode()">CLEAR CODE</button>
-      <div id="searchResult"></div>
-      <button id="returnButton2" onclick="goToPage1()">RETURN</button>
-    </div>
-  </div>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgwHF1q09Nmc5SnfVY6Unh9hvhTxSK-yc",
+            authDomain: "macon-8ff04.firebaseapp.com",
+            projectId: "macon-8ff04",
+            storageBucket: "macon-8ff04.appspot.com",
+            messagingSenderId: "525319083156",
+            appId: "1:525319083156:web:709ee9cb67a0813c991081",
+            measurementId: "G-T5PQJM74WJ"
+        };
 
-<script src="MACON2.JS"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('registrationButton').addEventListener('click', function () {
-      goToRegistration();
-    });
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-    document.getElementById('searchButton').addEventListener('click', function () {
-      search();
-    });
+        let dataStore = {};
+        const codeLimit = 4;
 
-    document.getElementById('completeButton').addEventListener('click', function () {
-      completeRegistration();
-    });
+        document.addEventListener('DOMContentLoaded', async function () {
+            // Call the function to load data from Firebase
+            await loadStoredData();
 
-    document.getElementById('returnButton1').addEventListener('click', function () {
-      goToPage1();
-    });
+            // Attach event listeners to buttons
+            document.getElementById('registrationButton').addEventListener('click', goToRegistration);
+            document.getElementById('searchButton').addEventListener('click', goToSearch);
+            document.getElementById('completeButton').addEventListener('click', completeRegistration);
+            document.getElementById('returnButton1').addEventListener('click', goToPage1);
+            document.getElementById('findButton').addEventListener('click', search);
+            document.getElementById('clearCodeButton').addEventListener('click', clearCode);
+            document.getElementById('returnButton2').addEventListener('click', goToPage1);
+        });
 
-    document.getElementById('returnButton2').addEventListener('click', function () {
-      goToPage1();
-    });
+        function goToRegistration() {
+            document.getElementById('page1').style.display = 'none';
+            document.getElementById('page2').style.display = 'block';
+            document.getElementById('nameInput').value = '';
+            document.getElementById('codeInput').value = '';
+        }
 
-    document.getElementById('clearCodeButton').addEventListener('click', function () {
-      clearCode();
-    });
-  });
+        function goToSearch() {
+            document.getElementById('page1').style.display = 'none';
+            document.getElementById('page3').style.display = 'block';
+            document.getElementById('searchCodeInput').value = '';
+            document.getElementById('searchResult').innerText = '';
+        }
 
-  // Simple data store object
-  const dataStore = {};
-  const codeLimit = 4; // Limit of codes for each ΦΑΤΝΩΜΑ
+        function goToPage1() {
+            document.getElementById('page2').style.display = 'none';
+            document.getElementById('page3').style.display = 'none';
+            document.getElementById('page1').style.display = 'block';
+        }
 
-  function goToRegistration() {
-    document.getElementById('page1').style.display = 'none';
-    document.getElementById('page2').style.display = 'block';
+        async function completeRegistration() {
+            const name = document.getElementById('nameInput').value;
+            const code = document.getElementById('codeInput').value;
 
-    // Reset input fields
-    document.getElementById('nameInput').value = '';
-    document.getElementById('codeInput').value = '';
-  }
+            if (!name || !code) {
+                alert('Both ΦΑΤΝΩΜΑ and CODE must be filled to complete registration.');
+                return;
+            }
 
-  function goToSearch() {
-    document.getElementById('page1').style.display = 'none';
-    document.getElementById('page3').style.display = 'block';
+            if (!dataStore[name]) {
+                dataStore[name] = [];
+            }
 
-    // Reset input fields
-    document.getElementById('searchCodeInput').value = '';
+            if (dataStore[name].includes(code)) {
+                alert(`Code ${code} already associated with ΦΑΤΝΩΜΑ ${name}.`);
+                return;
+            }
 
-    // Clear previous search result
-    document.getElementById('searchResult').innerText = '';
-  }
+            if (dataStore[name].length >= codeLimit) {
+                alert(`Cannot add more codes for ΦΑΤΝΩΜΑ ${name}. Limit reached.`);
+                return;
+            }
 
-  function goToPage1() {
-    document.getElementById('page2').style.display = 'none';
-    document.getElementById('page3').style.display = 'none';
-    document.getElementById('page1').style.display = 'block';
-  }
+            dataStore[name].push(code);
+            await saveDataToFirebase();
+            alert(`Registration complete:\nΦΑΤΝΩΜΑ: ${name}\nCODE: ${code}`);
+            document.getElementById('nameInput').value = '';
+            document.getElementById('codeInput').value = '';
+            goToPage1();
+        }
 
-  function completeRegistration() {
-    const name = document.getElementById('nameInput').value;
-    const code = document.getElementById('codeInput').value;
+        function search() {
+            const searchCode = document.getElementById('searchCodeInput').value;
 
-    // Check if both fields are filled before proceeding
-    if (!name || !code) {
-      alert('Both ΦΑΤΝΩΜΑ and CODE must be filled to complete registration.');
-      return;
-    }
+            if (!searchCode) {
+                alert('Enter a CODE to perform the search.');
+                return;
+            }
 
-    // Check code limit for each ΦΑΤΝΩΜΑ
-    if (!dataStore[name]) {
-      dataStore[name] = [];
-    }
+            const resultText = findNameByCode(searchCode);
+            document.getElementById('searchResult').innerText = `Result for CODE ${searchCode}:\nΦΑΤΝΩΜΑ: ${resultText || 'Not found'}`;
+        }
 
-    // Check if the code is already associated with the ΦΑΤΝΩΜΑ
-    if (dataStore[name].includes(code)) {
-      alert(`Code ${code} already associated with ΦΑΤΝΩΜΑ ${name}.`);
-      return;
-    }
+        function findNameByCode(searchCode) {
+            for (const name in dataStore) {
+                if (dataStore[name].includes(searchCode)) {
+                    return name;
+                }
+            }
+            return null;
+        }
 
-    if (dataStore[name].length >= codeLimit) {
-      alert(`Cannot add more codes for ΦΑΤΝΩΜΑ ${name}. Limit reached.`);
-      return;
-    }
+        async function clearCode() {
+            const searchCode = document.getElementById('searchCodeInput').value;
+            const name = findNameByCode(searchCode);
 
-    // Store the relation between name and code in the data store
-    dataStore[name].push(code);
+            if (!name || !searchCode) {
+                alert('Enter a valid ΦΑΤΝΩΜΑ and CODE to clear.');
+                return;
+            }
 
-    // Save data to local storage
-    saveToLocalStorage(code, name);
+            const codeIndex = dataStore[name].indexOf(searchCode);
+            if (codeIndex !== -1) {
+                dataStore[name].splice(codeIndex, 1);
+                alert(`Code ${searchCode} cleared for ΦΑΤΝΩΜΑ: ${name}`);
+            } else {
+                alert(`Code ${searchCode} not found for ΦΑΤΝΩΜΑ: ${name}`);
+            }
 
-    
-    alert(`Registration complete:\nΦΑΤΝΩΜΑ: ${name}\nCODE: ${code}`);
+            await saveDataToFirebase();
+        }
 
-    // Reset input fields
-    document.getElementById('nameInput').value = '';
-    document.getElementById('codeInput').value = '';
+        async function loadStoredData() {
+            // Load data from Firebase
+            const docRef = doc(db, "registrations", "dataStore");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data) {
+                    // Assuming the data is in the format { name: [code1, code2, ...], ... }
+                    dataStore = data.dataStore;
+                }
+            }
+        }
 
-    goToPage1();
-  }
-
-  function search() {
-    const searchCode = document.getElementById('searchCodeInput').value;
-
-    // Check if the search code field is filled before proceeding
-    if (!searchCode) {
-      alert('Enter a CODE to perform the search.');
-      return;
-    }
-
-    // Retrieve the name associated with the code from the data store
-    const resultText = findNameByCode(searchCode);
-
-    // Display the result in the searchResult div
-    document.getElementById('searchResult').innerText = `Result for CODE ${searchCode}:\nΦΑΤΝΩΜΑ: ${resultText || 'Not found'}`;
-  }
-
-  function findNameByCode(searchCode) {
-    for (const name in dataStore) {
-      if (dataStore[name].includes(searchCode)) {
-        return name;
-      }
-    }
-    return null;
-  }
-
-  function clearCode() {
-    const searchCode = document.getElementById('searchCodeInput').value;
-    const name = findNameByCode(searchCode);
-
-    // Check if the search code field is filled before proceeding
-    if (!name || !searchCode) {
-      alert('Enter a valid ΦΑΤΝΩΜΑ and CODE to clear.');
-      return;
-    }
-
-    // Check if the specified code exists for the ΦΑΤΝΩΜΑ
-    const codeIndex = dataStore[name].indexOf(searchCode);
-    if (codeIndex !== -1) {
-      // Remove the specified code from the ΦΑΤΝΩΜΑ
-      dataStore[name].splice(codeIndex, 1);
-
-      // For simplicity, let's just display an alert
-      alert(`Code ${searchCode} cleared for ΦΑΤΝΩΜΑ: ${name}`);
-    } else {
-      alert(`Code ${searchCode} not found for ΦΑΤΝΩΜΑ: ${name}`);
-    }
-
-    // Allow a new code to be input for the ΦΑΤΝΩΜΑ
-    if (dataStore[name].length < codeLimit) {
-      document.getElementById('codeInput').value = '';
-    }
-  }
-
-  // Define a function to save data to local storage
-  function saveToLocalStorage(code, name) {
-    const registrations = JSON.parse(localStorage.getItem('registrations')) || {};
-    registrations[code] = name;
-    localStorage.setItem('registrations', JSON.stringify(registrations));
-  }
-
-  // Define a function to search data in local storage
-  function searchInLocalStorage(searchCode) {
-    const registrations = JSON.parse(localStorage.getItem('registrations')) || {};
-    const resultText = registrations[searchCode] || 'Not found';
-    document.getElementById('searchResult').innerText = `Result for CODE ${searchCode}:\nΦΑΤΝΩΜΑ: ${resultText}`;
-  }
-</script>
+        async function saveDataToFirebase() {
+            // Write data to Firebase
+            const dataStoreDocRef = doc(db, "registrations", "dataStore");
+            await setDoc(dataStoreDocRef, { dataStore });
+        }
+    </script>
 </body>
+
 </html>
