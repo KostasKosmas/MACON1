@@ -5,22 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="MACON.CSS">
-    <script src="https://cdn.jsdelivr.net/npm/quagga"></script>
-    <style>
-        #startScanner {
-            padding: 5px 10px;
-            font-size: 14px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        #startScanner.active {
-            background-color: red;
-        }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
     <title>MACON</title>
 </head>
 
@@ -37,7 +22,7 @@
             <input type="text" id="codeInput" placeholder="CODE">
             <button id="completeButton">COMPLETE</button>
             <button id="returnButton1">RETURN</button>
-            <button id="startScanner">Start Scanner</button>
+            <button id="scanButton">SCAN</button> <!-- Added scan button -->
         </div>
 
         <div id="page3" style="display: none;">
@@ -73,7 +58,6 @@
 
         let dataStore = {};
         const codeLimit = 4;
-        let scannerActive = false;
 
         document.addEventListener('DOMContentLoaded', async function () {
             await loadStoredData();
@@ -87,52 +71,35 @@
             document.getElementById('clearCodeButton').addEventListener('click', clearCode);
             document.getElementById('returnButton2').addEventListener('click', goToPage1);
             document.getElementById('returnButton3').addEventListener('click', returnToPage1);
-            document.getElementById('startScanner').addEventListener('click', toggleScanner);
+            document.getElementById('scanButton').addEventListener('click', toggleScanner); // Added event listener
         });
 
         function toggleScanner() {
-            scannerActive = !scannerActive;
-            const startScannerButton = document.getElementById('startScanner');
-            const barcodeInput = document.getElementById('codeInput');
-
-            if (scannerActive) {
-                startScannerButton.classList.add('active');
-                startScannerButton.innerText = 'Stop Scanner';
-
-                Quagga.init({
-                    inputStream: {
-                        type: "LiveStream",
-                        constraints: {
-                            width: 640,
-                            height: 480,
-                            facingMode: "environment"
-                        }
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.querySelector('#nameInput'), // Assuming you want to fill the ΦΑΤΝΩΜΑ field
+                    constraints: {
+                        facingMode: "environment" // Use the rear camera
                     },
-                    decoder: {
-                        readers: ["ean_reader"]
-                    }
-                }, function (err) {
-                    if (err) {
-                        console.error(err);
-                        return;
-                    }
-                    Quagga.start();
-                    Quagga.onDetected(handleBarcode);
-                });
-            } else {
-                startScannerButton.classList.remove('active');
-                startScannerButton.innerText = 'Start Scanner';
+                },
+                decoder: {
+                    readers: ["ean_reader"]
+                }
+            }, function (err) {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+                Quagga.start();
+            });
 
+            Quagga.onDetected(function (result) {
+                const code = result.codeResult.code;
+                document.getElementById('codeInput').value = code; // Fill the CODE field
                 Quagga.stop();
-            }
-        }
-
-        function handleBarcode(result) {
-            const barcode = result?.codeResult?.code;
-            if (barcode) {
-                document.getElementById('codeInput').value = barcode;
-                toggleScanner(); // Stop the scanner after successful barcode scan
-            }
+            });
         }
 
         function goToRegistration() {
