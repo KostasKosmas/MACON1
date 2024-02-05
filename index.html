@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -6,8 +5,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="MACON.CSS">
+    <script src="https://cdn.jsdelivr.net/npm/quagga"></script>
+    <style>
+        #startScanner {
+            padding: 5px 10px;
+            font-size: 14px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #startScanner.active {
+            background-color: red;
+        }
+    </style>
     <title>MACON</title>
-    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 </head>
 
 <body>
@@ -23,6 +37,7 @@
             <input type="text" id="codeInput" placeholder="CODE">
             <button id="completeButton">COMPLETE</button>
             <button id="returnButton1">RETURN</button>
+            <button id="startScanner">Start Scanner</button>
         </div>
 
         <div id="page3" style="display: none;">
@@ -38,9 +53,6 @@
             <div id="relationsList"></div>
         </div>
     </div>
-
-    <div id="barcodeScannerContainer" style="display: none;"></div>
-    <button id="startScanner" style="display: none;">Start Scanner</button>
 
     <script type="module" defer>
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -75,14 +87,59 @@
             document.getElementById('clearCodeButton').addEventListener('click', clearCode);
             document.getElementById('returnButton2').addEventListener('click', goToPage1);
             document.getElementById('returnButton3').addEventListener('click', returnToPage1);
+            document.getElementById('startScanner').addEventListener('click', toggleScanner);
         });
+
+        function toggleScanner() {
+            scannerActive = !scannerActive;
+            const startScannerButton = document.getElementById('startScanner');
+            const barcodeInput = document.getElementById('codeInput');
+
+            if (scannerActive) {
+                startScannerButton.classList.add('active');
+                startScannerButton.innerText = 'Stop Scanner';
+
+                Quagga.init({
+                    inputStream: {
+                        type: "LiveStream",
+                        constraints: {
+                            width: 640,
+                            height: 480,
+                            facingMode: "environment"
+                        }
+                    },
+                    decoder: {
+                        readers: ["ean_reader"]
+                    }
+                }, function (err) {
+                    if (err) {
+                        console.error(err);
+                        return;
+                    }
+                    Quagga.start();
+                    Quagga.onDetected(handleBarcode);
+                });
+            } else {
+                startScannerButton.classList.remove('active');
+                startScannerButton.innerText = 'Start Scanner';
+
+                Quagga.stop();
+            }
+        }
+
+        function handleBarcode(result) {
+            const barcode = result?.codeResult?.code;
+            if (barcode) {
+                document.getElementById('codeInput').value = barcode;
+                toggleScanner(); // Stop the scanner after successful barcode scan
+            }
+        }
 
         function goToRegistration() {
             document.getElementById('page1').style.display = 'none';
             document.getElementById('page2').style.display = 'block';
             document.getElementById('nameInput').value = '';
             document.getElementById('codeInput').value = '';
-            document.getElementById('startScanner').style.display = 'block';
         }
 
         function goToSearch() {
@@ -97,7 +154,6 @@
             document.getElementById('page3').style.display = 'none';
             document.getElementById('relationsContainer').style.display = 'none';
             document.getElementById('page1').style.display = 'block';
-            document.getElementById('startScanner').style.display = 'none';
         }
 
         async function completeRegistration() {
@@ -229,50 +285,6 @@
         function returnToPage1() {
             document.getElementById('relationsContainer').style.display = 'none';
             document.getElementById('page1').style.display = 'block';
-            document.getElementById('startScanner').style.display = 'none';
-        }
-
-        document.getElementById('startScanner').addEventListener('click', toggleScanner);
-
-        function toggleScanner() {
-            scannerActive = !scannerActive;
-            const startScannerButton = document.getElementById('startScanner');
-            const barcodeInput = document.getElementById('codeInput');
-
-            if (scannerActive) {
-                startScannerButton.innerText = 'Stop Scanner';
-                startScannerButton.style.backgroundColor = 'red';
-
-                quagga.init({
-                    inputStream: {
-                        name: "Live",
-                        type: "LiveStream",
-                        target: document.querySelector('#barcodeScannerContainer')
-                    },
-                    decoder: {
-                        readers: ["ean_reader"]
-                    }
-                }, function (err) {
-                    if (err) {
-                        console.error(err);
-                        return;
-                    }
-                    quagga.start();
-                });
-
-                quagga.onDetected(function (result) {
-                    barcodeInput.value = result.codeResult.code;
-                    quagga.stop();
-                    startScannerButton.innerText = 'Start Scanner';
-                    startScannerButton.style.backgroundColor = '';
-                    scannerActive = false;
-                });
-            } else {
-                startScannerButton.innerText = 'Start Scanner';
-                startScannerButton.style.backgroundColor = '';
-
-                quagga.stop();
-            }
         }
     </script>
 </body>
