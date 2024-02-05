@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -18,20 +19,8 @@
         </div>
 
         <div id="page2" style="display: none;">
-            <label for="inputMethod">Choose input method:</label>
-            <select id="inputMethod" onchange="toggleInputMethod()">
-                <option value="typing" selected>Typing</option>
-                <option value="scanning">Scanning</option>
-            </select>
-            <br>
-            <div id="typingInputs">
-                <input type="text" id="nameInput" placeholder="ΦΑΤΝΩΜΑ">
-                <input type="text" id="codeInput" placeholder="CODE">
-            </div>
-            <div id="barcodeScannerContainer" style="display: none;">
-                <input type="text" id="barcodeInput" placeholder="Scan Barcode">
-                <button id="startScanner">Start Scanner</button>
-            </div>
+            <input type="text" id="nameInput" placeholder="ΦΑΤΝΩΜΑ">
+            <input type="text" id="codeInput" placeholder="CODE">
             <button id="completeButton">COMPLETE</button>
             <button id="returnButton1">RETURN</button>
         </div>
@@ -49,6 +38,9 @@
             <div id="relationsList"></div>
         </div>
     </div>
+
+    <div id="barcodeScannerContainer" style="display: none;"></div>
+    <button id="startScanner" style="display: none;">Start Scanner</button>
 
     <script type="module" defer>
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -83,77 +75,14 @@
             document.getElementById('clearCodeButton').addEventListener('click', clearCode);
             document.getElementById('returnButton2').addEventListener('click', goToPage1);
             document.getElementById('returnButton3').addEventListener('click', returnToPage1);
-            document.getElementById('startScanner').addEventListener('click', toggleScanner);
-
-            document.getElementById('nameInput').addEventListener('focus', () => setInputMethod('typing'));
-            document.getElementById('codeInput').addEventListener('focus', () => setInputMethod('typing'));
-            document.getElementById('barcodeInput').addEventListener('focus', () => setInputMethod('scanning'));
         });
 
-        function setInputMethod(method) {
-            const inputMethodSelect = document.getElementById('inputMethod');
-            inputMethodSelect.value = method;
-            toggleInputMethod();
-        }
-
-        function toggleInputMethod() {
-            const inputMethod = document.getElementById('inputMethod').value;
-            const typingInputs = document.getElementById('typingInputs');
-            const barcodeScannerContainer = document.getElementById('barcodeScannerContainer');
-
-            if (inputMethod === 'typing') {
-                typingInputs.style.display = 'block';
-                barcodeScannerContainer.style.display = 'none';
-            } else {
-                typingInputs.style.display = 'none';
-                barcodeScannerContainer.style.display = 'block';
-                toggleScanner();
-            }
-        }
-
-        function toggleScanner() {
-            scannerActive = !scannerActive;
-            const startScannerButton = document.getElementById('startScanner');
-            const barcodeInput = document.getElementById('barcodeInput');
-
-            if (scannerActive) {
-                startScannerButton.innerText = 'Stop Scanner';
-                startScannerButton.style.backgroundColor = 'red';
-
-                quagga.init({
-                    inputStream: {
-                        name: "Live",
-                        type: "LiveStream",
-                        target: document.querySelector('#barcodeScannerContainer')
-                    },
-                    decoder: {
-                        readers: ["ean_reader"]
-                    }
-                }, function (err) {
-                    if (err) {
-                        console.error(err);
-                        return;
-                    }
-                    quagga.start();
-                });
-
-                quagga.onDetected(function (result) {
-                    barcodeInput.value = result.codeResult.code;
-                    quagga.stop();
-                });
-            } else {
-                startScannerButton.innerText = 'Start Scanner';
-                startScannerButton.style.backgroundColor = '';
-
-                quagga.stop();
-            }
-        }
-
-        async function goToRegistration() {
+        function goToRegistration() {
             document.getElementById('page1').style.display = 'none';
             document.getElementById('page2').style.display = 'block';
             document.getElementById('nameInput').value = '';
             document.getElementById('codeInput').value = '';
+            document.getElementById('startScanner').style.display = 'block';
         }
 
         function goToSearch() {
@@ -168,6 +97,7 @@
             document.getElementById('page3').style.display = 'none';
             document.getElementById('relationsContainer').style.display = 'none';
             document.getElementById('page1').style.display = 'block';
+            document.getElementById('startScanner').style.display = 'none';
         }
 
         async function completeRegistration() {
@@ -299,6 +229,50 @@
         function returnToPage1() {
             document.getElementById('relationsContainer').style.display = 'none';
             document.getElementById('page1').style.display = 'block';
+            document.getElementById('startScanner').style.display = 'none';
+        }
+
+        document.getElementById('startScanner').addEventListener('click', toggleScanner);
+
+        function toggleScanner() {
+            scannerActive = !scannerActive;
+            const startScannerButton = document.getElementById('startScanner');
+            const barcodeInput = document.getElementById('codeInput');
+
+            if (scannerActive) {
+                startScannerButton.innerText = 'Stop Scanner';
+                startScannerButton.style.backgroundColor = 'red';
+
+                quagga.init({
+                    inputStream: {
+                        name: "Live",
+                        type: "LiveStream",
+                        target: document.querySelector('#barcodeScannerContainer')
+                    },
+                    decoder: {
+                        readers: ["ean_reader"]
+                    }
+                }, function (err) {
+                    if (err) {
+                        console.error(err);
+                        return;
+                    }
+                    quagga.start();
+                });
+
+                quagga.onDetected(function (result) {
+                    barcodeInput.value = result.codeResult.code;
+                    quagga.stop();
+                    startScannerButton.innerText = 'Start Scanner';
+                    startScannerButton.style.backgroundColor = '';
+                    scannerActive = false;
+                });
+            } else {
+                startScannerButton.innerText = 'Start Scanner';
+                startScannerButton.style.backgroundColor = '';
+
+                quagga.stop();
+            }
         }
     </script>
 </body>
