@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="MACON.CSS">
     <title>MACON</title>
+    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 </head>
 
 <body>
@@ -13,11 +14,24 @@
         <div id="page1">
             <button id="registrationButton">ΚΑΤΑΧΩΡΗΣΗ</button>
             <button id="searchButton">ΑΝΑΖΗΤΗΣΗ</button>
+            <button id="viewButton">ΠΡΟΒΟΛΗ</button>
         </div>
 
         <div id="page2" style="display: none;">
-            <input type="text" id="nameInput" placeholder="ΦΑΤΝΩΜΑ">
-            <input type="text" id="codeInput" placeholder="CODE">
+            <label for="inputMethod">Choose input method:</label>
+            <select id="inputMethod" onchange="toggleInputMethod()">
+                <option value="typing" selected>Typing</option>
+                <option value="scanning">Scanning</option>
+            </select>
+            <br>
+            <div id="typingInputs">
+                <input type="text" id="nameInput" placeholder="ΦΑΤΝΩΜΑ">
+                <input type="text" id="codeInput" placeholder="CODE">
+            </div>
+            <div id="barcodeScannerContainer" style="display: none;">
+                <input type="text" id="barcodeInput" placeholder="Scan Barcode">
+                <button id="startScanner">Start Scanner</button>
+            </div>
             <button id="completeButton">COMPLETE</button>
             <button id="returnButton1">RETURN</button>
         </div>
@@ -28,6 +42,11 @@
             <button id="clearCodeButton">CLEAR CODE</button>
             <div id="searchResult"></div>
             <button id="returnButton2">RETURN</button>
+        </div>
+
+        <div id="relationsContainer" style="display: none;">
+            <button id="returnButton3">RETURN</button>
+            <div id="relationsList"></div>
         </div>
     </div>
 
@@ -45,28 +64,92 @@
             measurementId: "G-T5PQJM74WJ"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
         let dataStore = {};
         const codeLimit = 4;
+        let scannerActive = false;
 
         document.addEventListener('DOMContentLoaded', async function () {
-            // Call the function to load data from Firebase
             await loadStoredData();
 
-            // Attach event listeners to buttons
             document.getElementById('registrationButton').addEventListener('click', goToRegistration);
             document.getElementById('searchButton').addEventListener('click', goToSearch);
+            document.getElementById('viewButton').addEventListener('click', viewRelations);
             document.getElementById('completeButton').addEventListener('click', completeRegistration);
             document.getElementById('returnButton1').addEventListener('click', goToPage1);
             document.getElementById('findButton').addEventListener('click', search);
             document.getElementById('clearCodeButton').addEventListener('click', clearCode);
             document.getElementById('returnButton2').addEventListener('click', goToPage1);
+            document.getElementById('returnButton3').addEventListener('click', returnToPage1);
+            document.getElementById('startScanner').addEventListener('click', toggleScanner);
+
+            document.getElementById('nameInput').addEventListener('focus', () => setInputMethod('typing'));
+            document.getElementById('codeInput').addEventListener('focus', () => setInputMethod('typing'));
+            document.getElementById('barcodeInput').addEventListener('focus', () => setInputMethod('scanning'));
         });
 
-        function goToRegistration() {
+        function setInputMethod(method) {
+            const inputMethodSelect = document.getElementById('inputMethod');
+            inputMethodSelect.value = method;
+            toggleInputMethod();
+        }
+
+        function toggleInputMethod() {
+            const inputMethod = document.getElementById('inputMethod').value;
+            const typingInputs = document.getElementById('typingInputs');
+            const barcodeScannerContainer = document.getElementById('barcodeScannerContainer');
+
+            if (inputMethod === 'typing') {
+                typingInputs.style.display = 'block';
+                barcodeScannerContainer.style.display = 'none';
+            } else {
+                typingInputs.style.display = 'none';
+                barcodeScannerContainer.style.display = 'block';
+                toggleScanner();
+            }
+        }
+
+        function toggleScanner() {
+            scannerActive = !scannerActive;
+            const startScannerButton = document.getElementById('startScanner');
+            const barcodeInput = document.getElementById('barcodeInput');
+
+            if (scannerActive) {
+                startScannerButton.innerText = 'Stop Scanner';
+                startScannerButton.style.backgroundColor = 'red';
+
+                quagga.init({
+                    inputStream: {
+                        name: "Live",
+                        type: "LiveStream",
+                        target: document.querySelector('#barcodeScannerContainer')
+                    },
+                    decoder: {
+                        readers: ["ean_reader"]
+                    }
+                }, function (err) {
+                    if (err) {
+                        console.error(err);
+                        return;
+                    }
+                    quagga.start();
+                });
+
+                quagga.onDetected(function (result) {
+                    barcodeInput.value = result.codeResult.code;
+                    quagga.stop();
+                });
+            } else {
+                startScannerButton.innerText = 'Start Scanner';
+                startScannerButton.style.backgroundColor = '';
+
+                quagga.stop();
+            }
+        }
+
+        async function goToRegistration() {
             document.getElementById('page1').style.display = 'none';
             document.getElementById('page2').style.display = 'block';
             document.getElementById('nameInput').value = '';
@@ -83,6 +166,7 @@
         function goToPage1() {
             document.getElementById('page2').style.display = 'none';
             document.getElementById('page3').style.display = 'none';
+            document.getElementById('relationsContainer').style.display = 'none';
             document.getElementById('page1').style.display = 'block';
         }
 
@@ -151,6 +235,9 @@
             if (codeIndex !== -1) {
                 dataStore[name].splice(codeIndex, 1);
                 alert(`Code ${searchCode} cleared for ΦΑΤΝΩΜΑ: ${name}`);
+
+                // Update the UI to reflect the removed ΦΑΤΝΩΜΑ
+                updateRelationsList();
             } else {
                 alert(`Code ${searchCode} not found for ΦΑΤΝΩΜΑ: ${name}`);
             }
@@ -158,23 +245,60 @@
             await saveDataToFirebase();
         }
 
+        function updateRelationsList() {
+            const relationsList = document.getElementById('relationsList');
+            const sortedRelations = getSortedRelations();
+
+            // Filter out ΦΑΤΝΩΜΑ entries without associated codes
+            const filteredRelations = sortedRelations.filter(relation => relation.codes.length > 0);
+
+            let html = '<ul>';
+            filteredRelations.forEach(relation => {
+                html += `<li>ΦΑΤΝΩΜΑ: ${relation.name}, CODEs: ${relation.codes.join(', ')}</li>`;
+            });
+            html += '</ul>';
+
+            relationsList.innerHTML = html;
+        }
+
         async function loadStoredData() {
-            // Load data from Firebase
             const docRef = doc(db, "registrations", "dataStore");
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 if (data) {
-                    // Assuming the data is in the format { name: [code1, code2, ...], ... }
                     dataStore = data.dataStore;
                 }
             }
         }
 
         async function saveDataToFirebase() {
-            // Write data to Firebase
             const dataStoreDocRef = doc(db, "registrations", "dataStore");
             await setDoc(dataStoreDocRef, { dataStore });
+        }
+
+        function viewRelations() {
+            updateRelationsList();
+
+            document.getElementById('page1').style.display = 'none';
+            document.getElementById('relationsContainer').style.display = 'block';
+        }
+
+        function getSortedRelations() {
+            const sortedRelations = [];
+            for (const name in dataStore) {
+                const codes = dataStore[name];
+                sortedRelations.push({ name, codes });
+            }
+
+            sortedRelations.sort((a, b) => parseInt(a.name) - parseInt(b.name));
+
+            return sortedRelations;
+        }
+
+        function returnToPage1() {
+            document.getElementById('relationsContainer').style.display = 'none';
+            document.getElementById('page1').style.display = 'block';
         }
     </script>
 </body>
